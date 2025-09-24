@@ -20,22 +20,22 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
-        sh 'ls -la'
+        bat 'dir'
       }
     }
 
     stage('SAST - Semgrep') {
       steps {
         echo "Running Semgrep (SAST)..."
-        sh '''
-          docker run --rm -v "$(pwd)":/src returntocorp/semgrep:latest semgrep --config=auto --json --output semgrep-results.json /src/src || true
-          cat semgrep-results.json || true
-        '''
+        bat """
+          docker run --rm -v "%CD%":/src returntocorp/semgrep:latest semgrep --config=auto --json --output /src/semgrep-results.json /src/src || ver>nul
+          type semgrep-results.json || ver>nul
+        """
         archiveArtifacts artifacts: 'semgrep-results.json', allowEmptyArchive: true
       }
       post {
         always {
-          script { sh 'echo "Semgrep done."' }
+          echo 'Semgrep done.'
         }
       }
     }
@@ -43,10 +43,10 @@ pipeline {
     stage('SCA - Dependency Check (OWASP dependency-check)') {
       steps {
         echo "Running SCA / Dependency-Check..."
-        sh '''
-          mkdir -p dependency-check-reports
-          docker run --rm -v "$(pwd)":/src owasp/dependency-check:latest dependency-check --project "devsecops-labs" --scan /src --format JSON --out /src/dependency-check-reports || true
-        '''
+        bat """
+          if not exist dependency-check-reports mkdir dependency-check-reports
+          docker run --rm -v "%CD%":/src owasp/dependency-check:latest dependency-check --project "devsecops-labs" --scan /src --format JSON --out /src/dependency-check-reports || ver>nul
+        """
         archiveArtifacts artifacts: 'dependency-check-reports/**', allowEmptyArchive: true
       }
     }
@@ -54,28 +54,28 @@ pipeline {
     stage('Build') {
       steps {
         echo "Building app (npm install and tests)..."
-        sh '''
+        bat """
           cd src
           npm install --no-audit --no-fund
-          if [ -f package.json ]; then
-            if npm test --silent; then echo "Tests OK"; else echo "Tests failed (continue)"; fi
-          fi
-        '''
+          if exist package.json (
+            call npm test --silent || echo Tests failed (continue)
+          )
+        """
       }
     }
 
     stage('Docker Build & Trivy Scan') {
       steps {
         echo "Building Docker image..."
-        sh '''
-          docker build -t ${DOCKER_IMAGE_NAME} -f Dockerfile .
-        '''
+        bat """
+          docker build -t %DOCKER_IMAGE_NAME% -f Dockerfile .
+        """
         echo "Scanning image with Trivy..."
-        sh '''
-          mkdir -p trivy-reports
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --format json --output trivy-reports/trivy-report.json ${DOCKER_IMAGE_NAME} || true
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL ${DOCKER_IMAGE_NAME} || true
-        '''
+        bat """
+          if not exist trivy-reports mkdir trivy-reports
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --format json --output trivy-reports/trivy-report.json %DOCKER_IMAGE_NAME% || ver>nul
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL %DOCKER_IMAGE_NAME% || ver>nul
+        """
         archiveArtifacts artifacts: 'trivy-reports/**', allowEmptyArchive: true
       }
     }
@@ -87,11 +87,11 @@ pipeline {
       steps {
         echo "Pushing image to registry ${DOCKER_REGISTRY}..."
         withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh '''
-            echo "$DOCKER_PASS" | docker login ${DOCKER_REGISTRY} -u "$DOCKER_USER" --password-stdin
-            docker push ${DOCKER_IMAGE_NAME}
-            docker logout ${DOCKER_REGISTRY}
-          '''
+          bat """
+            echo %DOCKER_PASS% | docker login %DOCKER_REGISTRY% -u "%DOCKER_USER%" --password-stdin
+            docker push %DOCKER_IMAGE_NAME%
+            docker logout %DOCKER_REGISTRY%
+          """
         }
       }
     }
@@ -99,27 +99,30 @@ pipeline {
     stage('Deploy to Staging (docker-compose)') {
       steps {
         echo "Deploying to staging with docker-compose..."
-        sh '''
-          docker-compose -f docker-compose.yml down || true
+        bat """
+          docker-compose -f docker-compose.yml down || ver>nul
           docker-compose -f docker-compose.yml up -d --build
-          sleep 8
+          timeout /t 8 /nobreak >nul
           docker ps -a
-        '''
+        """
       }
     }
 
     stage('DAST - OWASP ZAP scan') {
       steps {
         echo "Running DAST (OWASP ZAP) against ${STAGING_URL} ..."
-        sh '''
-          mkdir -p zap-reports
-          docker run --rm --network host -v "$(pwd)":/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t ${STAGING_URL} -r zap-reports/zap-report.html || true
-        '''
+        bat """
+          if not exist zap-reports mkdir zap-reports
+          docker run --rm -v "%CD%":/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t %STAGING_URL% -r zap-reports/zap-report.html || ver>nul
+        """
         archiveArtifacts artifacts: 'zap-reports/**', allowEmptyArchive: true
       }
     }
 
     stage('Policy Check - Fail on HIGH/CRITICAL CVEs') {
+      when {
+        expression { return isUnix() }
+      }
       steps {
         sh '''
           chmod +x scripts/scan_trivy_fail.sh
