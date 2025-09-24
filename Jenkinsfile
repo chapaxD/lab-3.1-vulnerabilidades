@@ -13,7 +13,6 @@ pipeline {
   options {
     timestamps()
     buildDiscarder(logRotator(numToKeepStr: '20'))
-    ansiColor('xterm')
   }
 
   stages {
@@ -26,13 +25,10 @@ pipeline {
     }
 
     stage('SAST - Semgrep') {
-      agent {
-        docker { image 'returntocorp/semgrep:latest' }
-      }
       steps {
         echo "Running Semgrep (SAST)..."
         sh '''
-          semgrep --config=auto --json --output semgrep-results.json src || true
+          docker run --rm -v "$(pwd)":/src returntocorp/semgrep:latest semgrep --config=auto --json --output semgrep-results.json /src/src || true
           cat semgrep-results.json || true
         '''
         archiveArtifacts artifacts: 'semgrep-results.json', allowEmptyArchive: true
@@ -45,21 +41,17 @@ pipeline {
     }
 
     stage('SCA - Dependency Check (OWASP dependency-check)') {
-      agent {
-        docker { image 'owasp/dependency-check:latest' }
-      }
       steps {
         echo "Running SCA / Dependency-Check..."
         sh '''
           mkdir -p dependency-check-reports
-          dependency-check --project "devsecops-labs" --scan . --format JSON --out dependency-check-reports || true
+          docker run --rm -v "$(pwd)":/src owasp/dependency-check:latest dependency-check --project "devsecops-labs" --scan /src --format JSON --out /src/dependency-check-reports || true
         '''
         archiveArtifacts artifacts: 'dependency-check-reports/**', allowEmptyArchive: true
       }
     }
 
     stage('Build') {
-      agent { label 'docker' }
       steps {
         echo "Building app (npm install and tests)..."
         sh '''
@@ -73,7 +65,6 @@ pipeline {
     }
 
     stage('Docker Build & Trivy Scan') {
-      agent { label 'docker' }
       steps {
         echo "Building Docker image..."
         sh '''
@@ -106,7 +97,6 @@ pipeline {
     }
 
     stage('Deploy to Staging (docker-compose)') {
-      agent { label 'docker' }
       steps {
         echo "Deploying to staging with docker-compose..."
         sh '''
@@ -119,7 +109,6 @@ pipeline {
     }
 
     stage('DAST - OWASP ZAP scan') {
-      agent { label 'docker' }
       steps {
         echo "Running DAST (OWASP ZAP) against ${STAGING_URL} ..."
         sh '''
