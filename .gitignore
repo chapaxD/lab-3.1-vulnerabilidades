@@ -1,0 +1,69 @@
+# Node.js
+node_modules/
+.npm/
+.npmrc
+.eslintcache
+
+# Builds y cobertura
+build/
+dist/
+coverage/
+.nyc_output/
+.cache/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Entornos
+.env
+.env.*.local
+.env.local
+.env.test.local
+.env.production.local
+
+# Docker
+.docker/
+docker-data/
+
+# Reportes de seguridad / escáneres
+dependency-check-reports/
+zap-reports/
+semgrep-results.json
+*.sarif
+*.junit.xml
+*.junit
+
+# Temporales
+.tmp/
+.temp/
+tmp/
+temp/
+*.tmp
+
+# SO (Windows / macOS)
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# IDEs / editores
+.vscode/
+.idea/
+*.iml
+
+# Comprimidos
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Otros
+*.swp
+*.swo
+
+# Mantener en control de versiones: Jenkinsfile, docker-compose.yml, Dockerfile
