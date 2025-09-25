@@ -1,5 +1,12 @@
 FROM node:18
 
+# Instalar herramientas de compilación necesarias para sqlite3
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 # Crear usuario no-root con directorio home
 RUN groupadd -r appuser && useradd -r -g appuser -m appuser
 
