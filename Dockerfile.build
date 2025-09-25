@@ -1,7 +1,7 @@
 FROM node:18
 
-# Crear usuario no-root
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Crear usuario no-root con directorio home
+RUN groupadd -r appuser && useradd -r -g appuser -m appuser
 
 # Crear directorio de trabajo
 WORKDIR /app
