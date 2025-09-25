@@ -5,7 +5,8 @@ RUN apt-get update && apt-get install -y \
     python3 \
     make \
     g++ \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/bin/python3 /usr/bin/python
 
 # Crear usuario no-root con directorio home
 RUN groupadd -r appuser && useradd -r -g appuser -m appuser
