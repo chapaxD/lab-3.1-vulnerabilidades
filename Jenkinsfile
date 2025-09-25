@@ -55,9 +55,9 @@ pipeline {
       steps {
         echo "Building app (npm install and tests)..."
         bat """
-          docker run --rm --user 1000:1000 -v "%CD%":/workspace -w /workspace/src node:18 bash -lc "\
-            npm install --no-audit --no-fund && \
-            (npm test --silent || echo 'Tests failed (continue)')\
+          docker run --rm -v "%CD%":/workspace -w /workspace/src node:18 bash -lc "\
+            chown -R node:node /workspace/src && \
+            su - node -c 'cd /workspace/src && npm install --no-audit --no-fund && (npm test --silent || echo \"Tests failed (continue)\")'\
           "
         """
       }
