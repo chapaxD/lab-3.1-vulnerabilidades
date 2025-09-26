@@ -21,7 +21,7 @@ docker stop dind-scanner 2>nul
 docker rm dind-scanner 2>nul
 
 echo [*] Iniciando Docker-in-Docker...
-docker run -d --name dind-scanner --privileged --network host docker:dind
+docker run -d --name dind-scanner --privileged --network host -p 2375:2375 docker:dind --host=tcp://0.0.0.0:2375
 
 echo [*] Esperando que DinD esté listo...
 REM Usar ping en lugar de timeout para evitar problemas de redirección
@@ -33,6 +33,22 @@ set /a RETRY_COUNT=0
 :verify_dind
 set /a RETRY_COUNT+=1
 echo [*] Intento %RETRY_COUNT% de verificación DinD...
+echo [*] Verificando conectividad al puerto 2375...
+REM Primero verificar que el puerto esté abierto
+netstat -an | findstr ":2375" >nul 2>&1
+if errorlevel 1 (
+    echo [!] Puerto 2375 no está abierto
+    if %RETRY_COUNT% LSS 3 (
+        echo [*] Esperando más tiempo para que DinD se inicie...
+        ping 127.0.0.1 -n 6 >nul
+        goto :verify_dind
+    ) else (
+        echo [!] Error: Puerto 2375 no se abrió después de 3 intentos
+        goto :cleanup
+    )
+)
+
+echo [*] Puerto 2375 está abierto, verificando DinD...
 docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 docker:latest version >nul 2>&1
 if errorlevel 1 (
     if %RETRY_COUNT% LSS 3 (
@@ -41,7 +57,10 @@ if errorlevel 1 (
         goto :verify_dind
     ) else (
         echo [!] Error: DinD no está funcionando correctamente después de 3 intentos
-        goto :cleanup
+        echo [!] Verificando logs del contenedor DinD:
+        docker logs dind-scanner
+        echo [!] Intentando método alternativo sin DinD...
+        goto :alternative_scan
     )
 )
 echo [*] DinD está listo y funcionando
@@ -83,6 +102,33 @@ if exist "%OUTPUT_DIR%\trivy-report.json" (
 echo [*] Ejecutando escaneo con salida detallada (HIGH,CRITICAL)...
 echo [*] Ejecutando: trivy image --severity HIGH,CRITICAL %IMAGE_NAME%
 docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 aquasec/trivy:latest image --severity HIGH,CRITICAL %IMAGE_NAME%
+goto :cleanup
+
+:alternative_scan
+echo [*] Método alternativo: Escaneando imagen como archivo TAR...
+echo [*] Guardando imagen como TAR...
+docker save %IMAGE_NAME% -o "%OUTPUT_DIR%\image.tar"
+if not exist "%OUTPUT_DIR%\image.tar" (
+    echo [!] Error: No se pudo guardar la imagen como TAR
+    goto :cleanup
+)
+
+echo [*] Escaneando archivo TAR con Trivy...
+docker run --rm -v "%CD%":/workspace aquasec/trivy:latest image --format json --output /workspace/%OUTPUT_DIR%/trivy-report.json --input /workspace/%OUTPUT_DIR%/image.tar
+
+if exist "%OUTPUT_DIR%\trivy-report.json" (
+    echo [*] Reporte JSON generado exitosamente: %OUTPUT_DIR%\trivy-report.json
+    for %%A in ("%OUTPUT_DIR%\trivy-report.json") do echo [*] Tamaño del archivo: %%~zA bytes
+) else (
+    echo [!] Error: No se pudo generar el reporte JSON con método alternativo
+    goto :cleanup
+)
+
+echo [*] Ejecutando escaneo con salida detallada (HIGH,CRITICAL)...
+docker run --rm -v "%CD%":/workspace aquasec/trivy:latest image --severity HIGH,CRITICAL --input /workspace/%OUTPUT_DIR%/image.tar
+
+echo [*] Limpiando archivo TAR temporal...
+del "%OUTPUT_DIR%\image.tar" 2>nul
 
 :cleanup
 echo [*] Limpiando contenedor DinD...
