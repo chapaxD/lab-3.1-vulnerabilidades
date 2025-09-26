@@ -68,9 +68,7 @@ pipeline {
         """
         echo "Scanning image with Trivy..."
         bat """
-          if not exist trivy-reports mkdir trivy-reports
-          docker run --rm -v //var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --format json --output trivy-reports/trivy-report.json %DOCKER_IMAGE_NAME% || ver>nul
-          docker run --rm -v //var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL %DOCKER_IMAGE_NAME% || ver>nul
+          scripts\\run_trivy_windows.bat %DOCKER_IMAGE_NAME%
         """
         archiveArtifacts artifacts: 'trivy-reports/**', allowEmptyArchive: true
       }
