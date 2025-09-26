@@ -24,15 +24,42 @@ echo [*] Iniciando Docker-in-Docker...
 docker run -d --name dind-scanner --privileged --network host docker:dind
 
 echo [*] Esperando que DinD esté listo...
-timeout /t 15 /nobreak >nul
+REM Usar ping en lugar de timeout para evitar problemas de redirección
+ping 127.0.0.1 -n 16 >nul
 
 echo [*] Verificando que DinD esté funcionando...
+REM Verificar múltiples veces con retry
+set /a RETRY_COUNT=0
+:verify_dind
+set /a RETRY_COUNT+=1
+echo [*] Intento %RETRY_COUNT% de verificación DinD...
 docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 docker:latest version >nul 2>&1
 if errorlevel 1 (
-    echo [!] Error: DinD no está funcionando correctamente
-    goto :cleanup
+    if %RETRY_COUNT% LSS 3 (
+        echo [*] DinD aún no está listo, esperando 5 segundos más...
+        ping 127.0.0.1 -n 6 >nul
+        goto :verify_dind
+    ) else (
+        echo [!] Error: DinD no está funcionando correctamente después de 3 intentos
+        goto :cleanup
+    )
 )
 echo [*] DinD está listo y funcionando
+
+echo [*] Verificando que la imagen esté disponible en DinD...
+docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 docker:latest images %IMAGE_NAME% >nul 2>&1
+if errorlevel 1 (
+    echo [!] La imagen %IMAGE_NAME% no está disponible en DinD
+    echo [*] Copiando imagen al DinD...
+    docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 -v /var/run/docker.sock:/var/run/docker.sock docker:latest sh -c "docker save %IMAGE_NAME% | docker load"
+    if errorlevel 1 (
+        echo [!] Error: No se pudo copiar la imagen al DinD
+        goto :cleanup
+    )
+    echo [*] Imagen copiada exitosamente al DinD
+) else (
+    echo [*] La imagen ya está disponible en DinD
+)
 
 echo [*] Ejecutando escaneo de Trivy con DinD...
 echo [*] Generando reporte JSON...
@@ -47,7 +74,9 @@ if exist "%OUTPUT_DIR%\trivy-report.json" (
 ) else (
     echo [!] Error: No se pudo generar el reporte JSON
     echo [!] Verificando si la imagen existe...
-    docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 docker:latest images %IMAGE_NAME%
+    echo [*] Listando imágenes disponibles en DinD:
+    docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 docker:latest images
+    echo [!] Imagen buscada: %IMAGE_NAME%
     goto :cleanup
 )
 
