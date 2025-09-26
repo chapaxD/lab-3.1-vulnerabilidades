@@ -5,7 +5,7 @@ pipeline {
     DOCKER_REGISTRY = "myregistry.example.com"
     DOCKER_CREDENTIALS = "docker-registry-credentials"
     GIT_CREDENTIALS = "git-credentials"
-    DOCKER_IMAGE_NAME = "${env.DOCKER_REGISTRY}/devsecops-labs/app:latest"
+    DOCKER_IMAGE_NAME = "devsecops-labs-app:latest"
     SSH_CREDENTIALS = "ssh-deploy-key"
     STAGING_URL = "http://host.docker.internal:3000"
   }
@@ -66,10 +66,12 @@ pipeline {
         bat """
           docker build -t %DOCKER_IMAGE_NAME% -f Dockerfile .
         """
-        echo "Scanning image with Trivy..."
+        
+        echo "Scanning image with Trivy using DinD..."
         bat """
-          scripts\\run_trivy_windows.bat %DOCKER_IMAGE_NAME%
+          scripts\\run_trivy_dind.bat %DOCKER_IMAGE_NAME%
         """
+        
         archiveArtifacts artifacts: 'trivy-reports/**', allowEmptyArchive: true
       }
     }
