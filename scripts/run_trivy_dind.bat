@@ -21,7 +21,8 @@ docker stop dind-scanner 2>nul
 docker rm dind-scanner 2>nul
 
 echo [*] Iniciando Docker-in-Docker...
-docker run -d --name dind-scanner --privileged --network host -p 2375:2375 docker:dind --host=tcp://0.0.0.0:2375
+REM Cambiar: usar solo -p sin --network host para Windows
+docker run -d --name dind-scanner --privileged -p 2375:2375 docker:dind --host=tcp://0.0.0.0:2375
 
 echo [*] Esperando que DinD esté listo...
 REM Usar ping en lugar de timeout para evitar problemas de redirección
@@ -49,7 +50,8 @@ if errorlevel 1 (
 )
 
 echo [*] Puerto 2375 está abierto, verificando DinD...
-docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 docker:latest version >nul 2>&1
+REM Cambiar: usar localhost:2375 en lugar de --network host
+docker run --rm -e DOCKER_HOST=tcp://localhost:2375 docker:latest version >nul 2>&1
 if errorlevel 1 (
     if %RETRY_COUNT% LSS 3 (
         echo [*] DinD aún no está listo, esperando 5 segundos más...
@@ -66,11 +68,13 @@ if errorlevel 1 (
 echo [*] DinD está listo y funcionando
 
 echo [*] Verificando que la imagen esté disponible en DinD...
-docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 docker:latest images %IMAGE_NAME% >nul 2>&1
+REM Cambiar: usar localhost:2375 en lugar de --network host
+docker run --rm -e DOCKER_HOST=tcp://localhost:2375 docker:latest images %IMAGE_NAME% >nul 2>&1
 if errorlevel 1 (
     echo [!] La imagen %IMAGE_NAME% no está disponible en DinD
     echo [*] Copiando imagen al DinD...
-    docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 -v /var/run/docker.sock:/var/run/docker.sock docker:latest sh -c "docker save %IMAGE_NAME% | docker load"
+    REM Cambiar: usar localhost:2375 en lugar de --network host
+    docker run --rm -e DOCKER_HOST=tcp://localhost:2375 -v /var/run/docker.sock:/var/run/docker.sock docker:latest sh -c "docker save %IMAGE_NAME% | docker load"
     if errorlevel 1 (
         echo [!] Error: No se pudo copiar la imagen al DinD
         goto :cleanup
@@ -85,7 +89,8 @@ echo [*] Generando reporte JSON...
 
 REM Ejecutar Trivy con DinD
 echo [*] Ejecutando: trivy image --format json --output /workspace/%OUTPUT_DIR%/trivy-report.json %IMAGE_NAME%
-docker run --rm --network host -v "%CD%":/workspace -e DOCKER_HOST=tcp://localhost:2375 aquasec/trivy:latest image --format json --output /workspace/%OUTPUT_DIR%/trivy-report.json %IMAGE_NAME%
+REM Cambiar: usar localhost:2375 en lugar de --network host
+docker run --rm -v "%CD%":/workspace -e DOCKER_HOST=tcp://localhost:2375 aquasec/trivy:latest image --format json --output /workspace/%OUTPUT_DIR%/trivy-report.json %IMAGE_NAME%
 
 if exist "%OUTPUT_DIR%\trivy-report.json" (
     echo [*] Reporte JSON generado exitosamente: %OUTPUT_DIR%\trivy-report.json
@@ -94,14 +99,16 @@ if exist "%OUTPUT_DIR%\trivy-report.json" (
     echo [!] Error: No se pudo generar el reporte JSON
     echo [!] Verificando si la imagen existe...
     echo [*] Listando imágenes disponibles en DinD:
-    docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 docker:latest images
+    REM Cambiar: usar localhost:2375 en lugar de --network host
+    docker run --rm -e DOCKER_HOST=tcp://localhost:2375 docker:latest images
     echo [!] Imagen buscada: %IMAGE_NAME%
     goto :cleanup
 )
 
 echo [*] Ejecutando escaneo con salida detallada (HIGH,CRITICAL)...
 echo [*] Ejecutando: trivy image --severity HIGH,CRITICAL %IMAGE_NAME%
-docker run --rm --network host -e DOCKER_HOST=tcp://localhost:2375 aquasec/trivy:latest image --severity HIGH,CRITICAL %IMAGE_NAME%
+REM Cambiar: usar localhost:2375 en lugar de --network host
+docker run --rm -e DOCKER_HOST=tcp://localhost:2375 aquasec/trivy:latest image --severity HIGH,CRITICAL %IMAGE_NAME%
 goto :cleanup
 
 :alternative_scan
