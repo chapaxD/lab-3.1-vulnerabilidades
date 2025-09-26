@@ -1,6 +1,4 @@
 @echo off
-setlocal enabledelayedexpansion
-
 REM Script para ejecutar Trivy en Windows
 REM Uso: run_trivy_windows.bat <nombre-imagen>
 
@@ -16,14 +14,14 @@ set OUTPUT_DIR=trivy-reports
 echo [*] Creando directorio de reportes...
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 
-echo [*] Ejecutando escaneo de Trivy para imagen: %IMAGE_NAME%
+echo [*] Ejecutando escaneo de Trivy...
 echo [*] Generando reporte JSON...
 
-REM Ejecutar Trivy con montaje de volumen correcto para Windows
 docker run --rm -v "%CD%":/workspace aquasec/trivy:latest image --format json --output /workspace/%OUTPUT_DIR%/trivy-report.json %IMAGE_NAME%
 
 if exist "%OUTPUT_DIR%\trivy-report.json" (
     echo [*] Reporte JSON generado exitosamente: %OUTPUT_DIR%\trivy-report.json
+    for %%A in ("%OUTPUT_DIR%\trivy-report.json") do echo [*] Tamaño del archivo: %%~zA bytes
 ) else (
     echo [!] Error: No se pudo generar el reporte JSON
     exit /b 1

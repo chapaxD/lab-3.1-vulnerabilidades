@@ -25,10 +25,12 @@ lab-3.1/
 │   └── package.json              # Dependencias del proyecto
 ├── scripts/                      # Scripts de automatización
 │   ├── run_trivy_dind.bat        # Script DinD para Trivy en Windows
+│   ├── run_trivy_windows.bat     # Script Trivy para Windows (alternativo)
 │   ├── run_trivy.sh              # Script Trivy para Linux
 │   ├── run_semgrep.sh            # Script Semgrep
 │   ├── run_zap.sh                # Script OWASP ZAP
-│   └── run_dependency_check.sh   # Script Dependency Check
+│   ├── run_dependency_check.sh   # Script Dependency Check
+│   └── scan_trivy_fail.sh        # Script de prueba para fallos
 ├── dependency-check-reports/     # Reportes de análisis de dependencias
 ├── trivy-reports/               # Reportes de escaneo de imágenes
 ├── zap-reports/                 # Reportes de análisis dinámico
