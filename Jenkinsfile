@@ -55,7 +55,7 @@ pipeline {
       steps {
         echo "Building app (npm install and tests)..."
         bat """
-          docker build -f Dockerfile.build -t devsecops-build:latest .
+          docker build -t devsecops-build:latest .
         """
       }
     }
