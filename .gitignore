@@ -30,13 +30,6 @@ pnpm-debug.log*
 .docker/
 docker-data/
 
-# Reportes de seguridad / escáneres
-dependency-check-reports/
-zap-reports/
-semgrep-results.json
-*.sarif
-*.junit.xml
-*.junit
 
 # Temporales
 .tmp/
