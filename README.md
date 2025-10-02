@@ -316,4 +316,4 @@ Este proyecto es parte de un laboratorio educativo de DevSecOps. Úsese para fin
 
 ---
 
-*Última actualización: 25 de Septiembre de 2025*
+*Última actualización: 02 de Octubre de 2025*
