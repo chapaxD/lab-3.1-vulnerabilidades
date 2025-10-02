@@ -109,7 +109,7 @@ pipeline {
         echo "Running DAST (OWASP ZAP) against ${STAGING_URL} ..."
         bat """
           if not exist zap-reports mkdir zap-reports
-          docker run --rm -v "%CD%":/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t %STAGING_URL% -r zap-reports/zap-report.html -x zap-reports/zap-report.xml -J zap-reports/zap-report.json || ver>nul
+          docker run --rm -v "%CD%":/zap/wrk:rw,Z -u root ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t %STAGING_URL% -r zap-reports/zap-report.html -x zap-reports/zap-report.xml -J zap-reports/zap-report.json || ver>nul
         """
         archiveArtifacts artifacts: 'zap-reports/**', allowEmptyArchive: true
       }
